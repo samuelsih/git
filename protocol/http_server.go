@@ -4,8 +4,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 type AuthHandler interface {
@@ -36,18 +34,28 @@ func NewHTTPServer(config Config) HTTPServer {
 	return server
 }
 
-func (s *HTTPServer) Middlewares(handler http.Handler) http.Handler {
-	return middleware.Logger(
-		s.GetNamespaceAndRepo(
-			s.Auth(
-				handler,
-			),
-		),
-	)
+func (s *HTTPServer) Middlewares(handler http.Handler, middlewares ...MiddlewareFunc) http.Handler {
+	if len(middlewares) < 1 {
+		return handler
+	}
+
+	wrapped := handler
+
+	for i := len(middlewares) - 1; i >= 0; i-- {
+		wrapped = middlewares[i](wrapped)
+	}
+
+	return wrapped
 }
 
 func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	urlPath := r.URL.Path
+
+	middlewares := []MiddlewareFunc{
+		s.Logger,
+		s.GetNamespaceAndRepo,
+		s.Auth,
+	}
 
 	switch {
 	case strings.HasSuffix(urlPath, infoRefsSuffix):
@@ -56,7 +64,7 @@ func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		s.Middlewares(s.InfoRefs()).ServeHTTP(w, r)
+		s.Middlewares(s.InfoRefs(), middlewares...).ServeHTTP(w, r)
 
 	case strings.HasSuffix(urlPath, gitUploadPackSuffix):
 		if r.Method != http.MethodPost {
@@ -64,7 +72,7 @@ func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		s.Middlewares(s.PostRPC("git-upload-pack")).ServeHTTP(w, r)
+		s.Middlewares(s.PostRPC("git-upload-pack"), middlewares...).ServeHTTP(w, r)
 
 	case strings.HasSuffix(urlPath, gitRecvPackSuffix):
 		if r.Method != http.MethodPost {
@@ -72,7 +80,7 @@ func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		s.Middlewares(s.PostRPC("git-receive-pack")).ServeHTTP(w, r)
+		s.Middlewares(s.PostRPC("git-receive-pack"), middlewares...).ServeHTTP(w, r)
 
 	default:
 		slog.Error("Unsupported url path: " + urlPath)
@@ -83,8 +91,4 @@ func (s *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *HTTPServer) Setup() error {
 	return s.config.Setup()
-}
-
-func (s *HTTPServer) Handler() http.Handler {
-	return s.router
 }

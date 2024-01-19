@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"time"
 )
 
 func (s *HTTPServer) GetNamespaceAndRepo(next http.Handler) http.Handler {
@@ -113,6 +114,18 @@ func (s *HTTPServer) Auth(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
+	}
+
+	return http.HandlerFunc(f)
+}
+
+func (s *HTTPServer) Logger(next http.Handler) http.Handler {
+	f := func(w http.ResponseWriter, r *http.Request) {
+		defer func(start time.Time) {
+			slog.Info(fmt.Sprintf("%s %s from %s - [%s] in %+v", r.Method, r.URL.Path, r.RemoteAddr, r.UserAgent(), time.Since(start)))
+		}(time.Now())
+
+		next.ServeHTTP(w, r)
 	}
 
 	return http.HandlerFunc(f)
