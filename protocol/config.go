@@ -14,7 +14,6 @@ type Config struct {
 	Dir        string
 	GitPath    string
 	AutoCreate bool
-	AutoHooks  bool
 	Auth       bool
 }
 

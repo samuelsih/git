@@ -62,6 +62,9 @@ func (s *HTTPServer) InfoRefs() http.HandlerFunc {
 			return
 		}
 
+		rc := http.NewResponseController(w)
+		defer rc.Flush()
+
 		if _, err := io.Copy(w, pipe); err != nil {
 			slog.Error(fmt.Sprintf("InfoRefs | io.Copy | %s: %v\n", ctx, err))
 			return
@@ -135,7 +138,7 @@ func (s *HTTPServer) PostRPC(rpc string) http.HandlerFunc {
 		w.Header().Add("Cache-Control", "no-cache")
 		w.WriteHeader(http.StatusOK)
 
-		if _, err := io.Copy(newWriteFlusher(w), pipe); err != nil {
+		if _, err := io.Copy(w, pipe); err != nil {
 			slog.Error(fmt.Sprintf("io.Copy Write Flusher | %s: %s", ctx, err.Error()))
 			return
 		}

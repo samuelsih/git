@@ -11,20 +11,21 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	BranchPushAction   = "branch.push"
+	BranchCreateAction = "branch.create"
+	BranchDeleteAction = "branch.delete"
+	TagCreateAction    = "tag.create"
+	TagDeleteAction    = "tag.delete"
+
+	tempDirFilePermission = 0774
+)
+
 type Receiver struct {
 	Debug       bool
 	MasterOnly  bool
 	TmpDir      string
 	HandlerFunc func(HookInfo, string) error
-}
-
-func ReadCommitMessage(sha string) (string, error) {
-	buff, err := exec.Command("git", "show", "-s", "--format=%B", sha).Output()
-	if err != nil {
-		return "", err
-	}
-
-	return strings.TrimSpace(string(buff)), nil
 }
 
 func IsForcePush(hook HookInfo) (bool, error) {
@@ -56,7 +57,7 @@ func (r *Receiver) Handle(reader io.Reader) error {
 	id := uuid.NewString()
 
 	tmpDir := path.Join(r.TmpDir, id)
-	if err := os.MkdirAll(tmpDir, 0774); err != nil {
+	if err := os.MkdirAll(tmpDir, tempDirFilePermission); err != nil {
 		return err
 	}
 
@@ -71,7 +72,7 @@ func (r *Receiver) Handle(reader io.Reader) error {
 		if len(buff) > 0 && strings.Contains(string(buff), "Damaged tar archive") {
 			return fmt.Errorf("Error: repository might be empty!")
 		}
-		
+
 		return fmt.Errorf("cant archive repo: %s", buff)
 	}
 
