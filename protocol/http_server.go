@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
@@ -16,7 +15,7 @@ type AuthHandler interface {
 type MiddlewareFunc = func(http.Handler) http.Handler
 
 type HTTPServer struct {
-	router      *chi.Mux
+	router      *http.ServeMux
 	AuthHandler AuthHandler
 	config      Config
 }
@@ -28,7 +27,7 @@ const (
 )
 
 func NewHTTPServer(config Config) HTTPServer {
-	server := HTTPServer{config: config, router: chi.NewRouter()}
+	server := HTTPServer{config: config, router: http.NewServeMux()}
 
 	if server.config.GitPath == "" {
 		server.config.GitPath = "git"

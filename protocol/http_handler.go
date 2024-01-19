@@ -22,14 +22,14 @@ func (s *HTTPServer) InfoRefs() http.HandlerFunc {
 		const ctx = "get-info-refs"
 		repoCtx := r.Context().Value(repoContextKey).(RepoContext)
 		if repoCtx == (RepoContext{}) {
-			http.Error(w, "Unknown repo name and repo path", 400)
+			http.Error(w, "Unknown repo name and repo path", http.StatusBadRequest)
 			return
 		}
 
 		rpc := r.URL.Query().Get("service")
 
 		if !(rpc == "git-upload-pack" || rpc == "git-receive-pack") {
-			http.Error(w, "Not Found", 404)
+			http.NotFound(w, r)
 			return
 		}
 
@@ -41,7 +41,7 @@ func (s *HTTPServer) InfoRefs() http.HandlerFunc {
 		)
 
 		if err := cmd.Start(); err != nil {
-			http.Error(w, "Internal server error", 500)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			slog.Error(fmt.Sprintf("InfoRefs | cmd.Start | %s: %v\n", ctx, err))
 			return
 		}
@@ -50,7 +50,7 @@ func (s *HTTPServer) InfoRefs() http.HandlerFunc {
 
 		w.Header().Add("Content-Type", fmt.Sprintf("application/x-%s-advertisement", rpc))
 		w.Header().Add("Cache-Control", "no-cache")
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 
 		if err := packLine(w, fmt.Sprintf("# service=%s\n", rpc)); err != nil {
 			slog.Error(fmt.Sprintf("InfoRefs | packLine | %s: %v\n", ctx, err))
@@ -83,7 +83,7 @@ func (s *HTTPServer) PostRPC(rpc string) http.HandlerFunc {
 		body := r.Body
 		repoCtx := r.Context().Value(repoContextKey).(RepoContext)
 		if repoCtx == (RepoContext{}) {
-			http.Error(w, "Unknown repo name and repo path", 400)
+			http.Error(w, "Unknown repo name and repo path", http.StatusBadRequest)
 			return
 		}
 
@@ -91,7 +91,7 @@ func (s *HTTPServer) PostRPC(rpc string) http.HandlerFunc {
 			var err error
 			body, err = gzip.NewReader(r.Body)
 			if err != nil {
-				http.Error(w, "Internal server error", 500)
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
 				slog.Error(fmt.Sprintf("Gzip error | %s: %v\n", ctx, err))
 				return
 			}
@@ -108,7 +108,7 @@ func (s *HTTPServer) PostRPC(rpc string) http.HandlerFunc {
 
 		stdin, err := cmd.StdinPipe()
 		if err != nil {
-			http.Error(w, "Internal server error", 500)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			slog.Error(fmt.Sprintf("StdinPipe | %s: %v\n", ctx, err))
 			return
 		}
@@ -116,7 +116,7 @@ func (s *HTTPServer) PostRPC(rpc string) http.HandlerFunc {
 		defer stdin.Close()
 
 		if err := cmd.Start(); err != nil {
-			http.Error(w, "Internal server error", 500)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			slog.Error(fmt.Sprintf("Cmd | %s: %v\n", ctx, err))
 			return
 		}
@@ -124,7 +124,7 @@ func (s *HTTPServer) PostRPC(rpc string) http.HandlerFunc {
 		defer cleanUpProcessGroup(cmd)
 
 		if _, err := io.Copy(stdin, body); err != nil {
-			http.Error(w, "Internal server error", 500)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			slog.Error(fmt.Sprintf("io.Copy | %s: %v\n", ctx, err))
 			return
 		}
@@ -133,7 +133,7 @@ func (s *HTTPServer) PostRPC(rpc string) http.HandlerFunc {
 
 		w.Header().Add("Content-Type", fmt.Sprintf("application/x-%s-result", rpc))
 		w.Header().Add("Cache-Control", "no-cache")
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 
 		if _, err := io.Copy(newWriteFlusher(w), pipe); err != nil {
 			slog.Error(fmt.Sprintf("io.Copy Write Flusher | %s: %s", ctx, err.Error()))

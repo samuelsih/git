@@ -15,7 +15,7 @@ type Receiver struct {
 	Debug       bool
 	MasterOnly  bool
 	TmpDir      string
-	HandlerFunc func(*HookInfo, string) error
+	HandlerFunc func(HookInfo, string) error
 }
 
 func ReadCommitMessage(sha string) (string, error) {
@@ -23,11 +23,11 @@ func ReadCommitMessage(sha string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return strings.TrimSpace(string(buff)), nil
 }
 
-func IsForcePush(hook *HookInfo) (bool, error) {
-	// New branch or tag OR deleted branch or tag
+func IsForcePush(hook HookInfo) (bool, error) {
 	if hook.OldRev == ZeroSHA || hook.NewRev == ZeroSHA {
 		return false, nil
 	}
@@ -71,11 +71,12 @@ func (r *Receiver) Handle(reader io.Reader) error {
 		if len(buff) > 0 && strings.Contains(string(buff), "Damaged tar archive") {
 			return fmt.Errorf("Error: repository might be empty!")
 		}
+		
 		return fmt.Errorf("cant archive repo: %s", buff)
 	}
 
 	if r.HandlerFunc != nil {
-		return r.HandlerFunc(&hook, tmpDir)
+		return r.HandlerFunc(hook, tmpDir)
 	}
 
 	return nil
