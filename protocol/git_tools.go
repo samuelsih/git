@@ -17,10 +17,6 @@ func initRepo(name string, config *Config) error {
 		return err
 	}
 
-	if config.AutoHooks && (&config.Hooks != nil) {
-		return config.Hooks.createHooksDir(fullPath)
-	}
-
 	return nil
 }
 

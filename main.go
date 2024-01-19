@@ -10,15 +10,9 @@ import (
 func main() {
 	slog.Info("Server initiated")
 
-	hooks := protocol.HookScripts{
-		PreReceive: `echo "Hello World!"`,
-	}
-
 	service := protocol.NewHTTPServer(protocol.Config{
 		Dir:        "./test",
 		AutoCreate: true,
-		AutoHooks:  true,
-		Hooks:      hooks,
 		Auth:       false,
 	})
 
